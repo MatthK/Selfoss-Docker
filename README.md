@@ -5,6 +5,6 @@
 
 ## How-to
 - Clone it to your disk
-- Run `docker build . -t Selfoss:latest`
+- Run `docker build . -t selfoss:latest`
 
 This should create the image on your machine and based on your architecture.
