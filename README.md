@@ -1,7 +1,7 @@
 # Selfoss Docker
  A docker file to create an image for Selfoss
  
- The main branch is using the latest changes of Selfoss as it clones the git repo from Selfoss.
+ The main branch is using the latest changes of Selfoss[https://github.com/fossar/selfoss/] as it clones the git repo from Selfoss.
 
 ## How-to
 - Clone it to your disk with `git clone https://github.com/MatthK/Selfoss-Docker`.
