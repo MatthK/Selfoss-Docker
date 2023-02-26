@@ -1,7 +1,12 @@
-# Filename: Dockerfile
-FROM php:7.4-apache
+FROM node:19-bullseye as client
 
-MAINTAINER Matthias Karl matthias.karl@gmail.com
+WORKDIR /app
+RUN git clone https://github.com/fossar/selfoss . && rm -rf .git
+RUN npm install --prefix assets/
+RUN npm run --prefix assets/ build
+
+FROM php:8.1-apache
+LABEL org.opencontainers.image.authors="matthias.karl@gmail.com"
 
 # Set frontend mode as noninteractive (default answers to all questions)
 ENV DEBIAN_FRONTEND noninteractive
@@ -13,29 +18,28 @@ RUN a2enmod headers rewrite \
                libjpeg62-turbo-dev \
                libpng-dev \
                libpq-dev \
-               cron \
-               git \
-               npm \
+               libtidy-dev \
     && rm -rf /var/lib/apt/lists/* \
     && docker-php-ext-configure gd --with-jpeg=/usr/include/ \
-    && docker-php-ext-install gd pdo_pgsql pdo_mysql mysqli \
+    && docker-php-ext-install gd pdo_pgsql pdo_mysql mysqli tidy \
     && docker-php-ext-enable mysqli
 
-COPY --from=composer:latest /usr/bin/composer /usr/local/bin/composer
-RUN git clone https://github.com/fossar/selfoss /var/www/html
-RUN ln -s /var/www/html/data/config.ini /var/www/html && \
-    chown -R www-data:www-data /var/www/html
+COPY --from=composer /usr/bin/composer /usr/local/bin/composer
 
-RUN cd /var/www/html/assets && npm install --global --unsafe-perm exp && npm audit fix
 
 # Extend maximum execution time, so /refresh does not time out
 COPY ./docker/php.ini /usr/local/etc/php/
 COPY ./docker/vhost.conf /etc/apache2/sites-enabled/000-default.conf
+COPY ./docker/entrypoint.sh /entrypoint.sh
 
 VOLUME /var/www/html/data
-
-RUN echo "*/15 *  * * *  root  curl -s http://localhost/update\n" >> /etc/crontab
-
 HEALTHCHECK --interval=1m --timeout=3s CMD curl -f http://localhost/ || exit 1
 
-ENTRYPOINT /bin/bash -c "cron && composer install && cd /var/www/html/assets && npm run build && cd .. && apache2-foreground"
+COPY --from=client /app /var/www/html
+WORKDIR /var/www/html
+RUN composer install
+RUN ln -s /var/www/html/data/config.ini /var/www/html
+RUN ln -s /proc/1/fd/1 /var/www/html/data/logs/default.log
+RUN chown -R www-data:www-data /var/www/html
+
+ENTRYPOINT /entrypoint.sh
